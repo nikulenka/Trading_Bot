@@ -3,7 +3,7 @@ uvicorn
 pandas
 numpy
 ccxt
-pandas_ta
+pandas-ta
 ta
 pydantic
 python-dotenv
