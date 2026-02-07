@@ -23,9 +23,13 @@ class Indicators:
         self.add_stoch()
         self.add_macd()
         self.add_obv()
+        self.add_volume_metrics()
         self.add_atr()
         self.add_aroon()
         self.add_cci()
+        self.add_adx()
+        self.add_bollinger_bands()
+        self.add_keltner_channels()
         self.add_fibonacci_levels()
         return self.df
 
@@ -55,6 +59,12 @@ class Indicators:
     def add_obv(self):
         self.df['OBV'] = ta_lib.volume.OnBalanceVolumeIndicator(close=self.df['close'], volume=self.df['volume']).on_balance_volume()
 
+    def add_volume_metrics(self, period=20):
+        """
+        Adds volume-based indicators (Volume SMA).
+        """
+        self.df['VOL_SMA'] = self.df['volume'].rolling(window=period).mean()
+
     def add_atr(self, period=14):
         self.df['ATR'] = ta_lib.volatility.AverageTrueRange(high=self.df['high'], low=self.df['low'], close=self.df['close'], window=period).average_true_range()
 
@@ -66,6 +76,25 @@ class Indicators:
 
     def add_cci(self, period=20):
         self.df['CCI'] = ta_lib.trend.CCIIndicator(high=self.df['high'], low=self.df['low'], close=self.df['close'], window=period).cci()
+
+    def add_adx(self, period=14):
+        adx = ta_lib.trend.ADXIndicator(high=self.df['high'], low=self.df['low'], close=self.df['close'], window=period)
+        self.df['ADX'] = adx.adx()
+        self.df['ADX_Pos'] = adx.adx_pos()
+        self.df['ADX_Neg'] = adx.adx_neg()
+
+    def add_bollinger_bands(self, period=20, std_dev=2):
+        bb = ta_lib.volatility.BollingerBands(close=self.df['close'], window=period, window_dev=std_dev)
+        self.df['BB_High'] = bb.bollinger_hband()
+        self.df['BB_Mid'] = bb.bollinger_mavg()
+        self.df['BB_Low'] = bb.bollinger_lband()
+        self.df['BB_Width'] = bb.bollinger_wband()
+
+    def add_keltner_channels(self, period=20, atr_period=10):
+        kc = ta_lib.volatility.KeltnerChannel(high=self.df['high'], low=self.df['low'], close=self.df['close'], window=period, window_atr=atr_period)
+        self.df['KC_High'] = kc.keltner_channel_hband()
+        self.df['KC_Mid'] = kc.keltner_channel_mband()
+        self.df['KC_Low'] = kc.keltner_channel_lband()
 
     def add_fibonacci_levels(self, lookback_period=100):
         """
