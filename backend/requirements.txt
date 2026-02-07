@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pandas
+numpy
+ccxt
+pandas_ta
+ta
+pydantic
+python-dotenv
+websockets
+httpx
+pytest
