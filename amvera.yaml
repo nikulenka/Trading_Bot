@@ -1,0 +1,14 @@
+version: null
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: "3.11"
+build:
+  requirementsPath: backend/requirements.txt
+  useCache: true
+run:
+  persistenceMount: /data
+  scriptName: backend/main.py
+  containerPort: 80
+serviceType: compute
