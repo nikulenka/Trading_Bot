@@ -1,6 +1,4 @@
 # Production Docker Compose with Nginx reverse proxy
-version: '3.8'
-
 services:
   backend:
     build:
