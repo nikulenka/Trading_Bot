@@ -6,6 +6,7 @@ backend/*.pyc
 backend/.pytest_cache/
 backend/data/*.csv
 backend/scripts/__pycache__/
+backend/.env
 
 # Node
 frontend/node_modules/
@@ -27,3 +28,16 @@ frontend/yarn-error.log*
 # Project specific
 tmp/
 .gemini/
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# SSL Certificates
+ssl/
+*.pem
+*.key
+*.crt
+
+# Deployment
+.env.production.local

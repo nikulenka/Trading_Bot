@@ -1,0 +1,55 @@
+# Production Docker Compose with Nginx reverse proxy
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trading-bot-backend
+    expose:
+      - "8000"
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/.env:/app/.env
+    restart: unless-stopped
+    networks:
+      - trading-bot-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trading-bot-frontend
+    expose:
+      - "3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - trading-bot-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: trading-bot-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - trading-bot-network
+
+networks:
+  trading-bot-network:
+    driver: bridge
