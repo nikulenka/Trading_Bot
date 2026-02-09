@@ -59,6 +59,17 @@ print_success "System updated"
 
 print_step "Step 2/8: Installing dependencies"
 sudo apt install -y -qq git curl
+
+# Install Node.js 20.x
+if ! command -v node &> /dev/null || [ "$(node -v | cut -d'.' -f1 | sed 's/v//')" -lt 20 ]; then
+    print_step "Installing Node.js 20.x"
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y -qq nodejs
+    print_success "Node.js 20.x installed"
+else
+    print_success "Node.js 20+ already installed"
+fi
+
 print_success "Dependencies installed"
 
 print_step "Step 3/8: Installing Docker"
