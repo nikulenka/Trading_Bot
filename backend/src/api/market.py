@@ -8,7 +8,11 @@ from ..core.backtest import Backtester
 
 router = APIRouter()
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "data")
+# Use absolute path for Docker environment, fallback to relative for local dev
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+if not os.path.exists(DATA_DIR):
+    # Fallback for local development
+    DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "data")
 
 def load_data(timeframe):
     filename = f"BTCUSDT_{timeframe}.csv"
@@ -139,6 +143,33 @@ async def run_backtest_endpoint(
         return {
             "metrics": metrics,
             "chart_data": chart_data.to_dict(orient='records')
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+from ..core.llm import GeminiClient
+
+@router.get("/ai-analysis")
+async def get_ai_analysis():
+    """
+    Triggers an on-demand analysis of the current market situation using Gemini.
+    """
+    try:
+        gemini_client = GeminiClient()
+        df = load_data("4h")
+        indicators = Indicators(df)
+        df = indicators.add_all_indicators()
+        
+        # Use default weights for analysis context
+        aggregator = SignalAggregator(df)
+        aggregator.calculate_unum_score()
+        
+        context = aggregator.get_latest_market_context()
+        analysis = gemini_client.analyze_signal(context)
+        
+        return {
+            "context": context,
+            "analysis": analysis
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
