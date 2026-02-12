@@ -9,6 +9,7 @@ services:
     environment:
       - API_HOST=0.0.0.0
       - API_PORT=8000
+      - CORS_ORIGINS=http://103.228.168.119:3000
     volumes:
       - ./backend/data:/app/data
       - ./backend/.env:/app/.env
@@ -20,11 +21,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://103.228.168.119:8000
     container_name: trading-bot-frontend
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://103.228.168.119:8000
     depends_on:
       - backend
     restart: unless-stopped

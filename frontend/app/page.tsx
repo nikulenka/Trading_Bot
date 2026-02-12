@@ -35,6 +35,16 @@ interface BacktestMetrics {
     total_trades: number;
 }
 
+interface AIAnalysis {
+    analysis: {
+        decision: "CONFIRM" | "REJECT" | "NEUTRAL";
+        confidence: number;
+        reason: string;
+        risk_level: "LOW" | "MEDIUM" | "HIGH";
+    };
+    context: any;
+}
+
 export default function Dashboard() {
     const [data, setData] = useState<MarketData[]>([]);
     const [latest, setLatest] = useState<LatestSignal | null>(null);
@@ -49,14 +59,20 @@ export default function Dashboard() {
     const [risk, setRisk] = useState({ sl: 2.0, tp: 4.0, ts: 1.5, skipWeekends: true });
     const [activeSessions, setActiveSessions] = useState({ asian: true, european: true, american: true });
 
+
+    // AI Analysis State
+    const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
+    const [analyzing, setAnalyzing] = useState(false);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const resData = await fetch(`http://localhost:8001/api/v1/market-data/${timeframe}`);
+                const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                const resData = await fetch(`${baseUrl}/api/v1/market-data/${timeframe}`);
                 const jsonData = await resData.json();
                 setData(jsonData);
 
-                const resSignal = await fetch("http://localhost:8001/api/v1/latest-signal");
+                const resSignal = await fetch(`${baseUrl}/api/v1/latest-signal`);
                 const jsonSignal = await resSignal.json();
                 setLatest(jsonSignal);
             } catch (error) {
@@ -71,28 +87,6 @@ export default function Dashboard() {
         return () => clearInterval(interval);
     }, [timeframe]);
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const resData = await fetch(`http://localhost:8001/api/v1/market-data/${timeframe}`);
-                const jsonData = await resData.json();
-                setData(jsonData);
-
-                const resSignal = await fetch("http://localhost:8001/api/v1/latest-signal");
-                const jsonSignal = await resSignal.json();
-                setLatest(jsonSignal);
-            } catch (error) {
-                console.error("Failed to fetch data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-        const interval = setInterval(fetchData, 60000); // Update every minute
-        return () => clearInterval(interval);
-    }, [timeframe]);
 
     // Load state from localStorage on mount
     useEffect(() => {
@@ -143,7 +137,9 @@ export default function Dashboard() {
                 skip_weekends: risk.skipWeekends.toString(),
                 sessions: selectedSessions
             });
-            const res = await fetch(`http://localhost:8001/api/v1/backtest?${params}`);
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${baseUrl}/api/v1/backtest?${params}`);
+
             const json = await res.json();
             if (json.metrics) {
                 setBacktest(json.metrics);
@@ -173,7 +169,9 @@ export default function Dashboard() {
                 skip_weekends: risk.skipWeekends.toString(),
                 sessions: selectedSessions
             });
-            const res = await fetch(`http://localhost:8001/api/v1/optimize?${params}`);
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${baseUrl}/api/v1/optimize?${params}`);
+
             const json = await res.json();
             if (json.best_weights) {
                 const newWeights = {
@@ -196,7 +194,8 @@ export default function Dashboard() {
                     skip_weekends: risk.skipWeekends.toString(),
                     sessions: selectedSessions
                 });
-                const resBt = await fetch(`http://localhost:8001/api/v1/backtest?${paramsBt}`);
+                const resBt = await fetch(`${baseUrl}/api/v1/backtest?${paramsBt}`);
+
                 const jsonBt = await resBt.json();
                 if (jsonBt.metrics) {
                     setBacktest(jsonBt.metrics);
@@ -209,6 +208,20 @@ export default function Dashboard() {
         }
     };
 
+    const fetchAIAnalysis = async () => {
+        try {
+            setAnalyzing(true);
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const res = await fetch(`${baseUrl}/api/v1/ai-analysis`);
+
+            const json = await res.json();
+            setAiAnalysis(json);
+        } catch (error) {
+            console.error("AI Analysis failed:", error);
+        } finally {
+            setAnalyzing(false);
+        }
+    };
 
     const getSignalColor = (score: number) => {
         if (score > 0.5) return "text-green-500";
@@ -338,6 +351,83 @@ export default function Dashboard() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Gemini Insight Panel */}
+            <Card className="bg-zinc-900 border-zinc-800 mb-8 overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-blue-500 to-purple-500"></div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <div className="flex items-center gap-2">
+                        <span className="flex h-3 w-3 relative">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${analyzing ? "bg-blue-400" : "bg-transparent"}`}></span>
+                            <span className={`relative inline-flex rounded-full h-3 w-3 ${analyzing ? "bg-blue-500" : "bg-zinc-700"}`}></span>
+                        </span>
+                        <CardTitle className="text-zinc-200 flex items-center gap-2">
+                            Gemini Insight <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">AI ANALYST</span>
+                        </CardTitle>
+                    </div>
+                    <button
+                        onClick={fetchAIAnalysis}
+                        disabled={analyzing}
+                        className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+                    >
+                        {analyzing ? "ANALYZING..." : "ASK GEMINI"}
+                    </button>
+                </CardHeader>
+                <CardContent>
+                    {aiAnalysis ? (
+                        <div className="grid md:grid-cols-4 gap-6 animate-in fade-in duration-500">
+                            <div className="md:col-span-1 border-r border-zinc-800 pr-6">
+                                <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Decision</div>
+                                <div className={`text-3xl font-bold ${aiAnalysis.analysis.decision === 'CONFIRM' ? 'text-green-500' :
+                                    aiAnalysis.analysis.decision === 'REJECT' ? 'text-red-500' : 'text-yellow-500'
+                                    }`}>
+                                    {aiAnalysis.analysis.decision}
+                                </div>
+                                <div className="mt-4">
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="text-zinc-500">Confidence</span>
+                                        <span className="text-zinc-300">{(aiAnalysis.analysis.confidence * 100).toFixed(0)}%</span>
+                                    </div>
+                                    <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                            style={{ width: `${aiAnalysis.analysis.confidence * 100}%` }}
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="md:col-span-3">
+                                <div className="flex items-start gap-4">
+                                    <div className="flex-1">
+                                        <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Analysis Logic</div>
+                                        <p className="text-zinc-300 italic text-lg leading-relaxed">
+                                            "{aiAnalysis.analysis.reason}"
+                                        </p>
+                                        <div className="mt-4 flex gap-4">
+                                            <div className="bg-zinc-950 px-3 py-1.5 rounded border border-zinc-800">
+                                                <span className="text-zinc-500 text-xs mr-2">RISK LEVEL</span>
+                                                <span className={`text-sm font-bold ${aiAnalysis.analysis.risk_level === 'HIGH' ? 'text-red-400' :
+                                                    aiAnalysis.analysis.risk_level === 'MEDIUM' ? 'text-yellow-400' : 'text-green-400'
+                                                    }`}>{aiAnalysis.analysis.risk_level}</span>
+                                            </div>
+                                            <div className="bg-zinc-950 px-3 py-1.5 rounded border border-zinc-800">
+                                                <span className="text-zinc-500 text-xs mr-2">CONTEXT</span>
+                                                <span className="text-sm text-zinc-300">RSI: {aiAnalysis.context.indicators.rsi.value.toFixed(1)} • Trend: {aiAnalysis.context.indicators.adx.strength}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8 text-zinc-500 border-2 border-dashed border-zinc-800/50 rounded-lg">
+                            <Activity className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                            <p>Ready to analyze current market conditions.</p>
+                            <p className="text-xs mt-1">Click "ASK GEMINI" to get a second opinion.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             <div className="grid gap-6 md:grid-cols-3 mb-8">
                 <Card className="bg-zinc-900 border-zinc-800 md:col-span-2">

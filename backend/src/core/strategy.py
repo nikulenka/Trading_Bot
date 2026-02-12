@@ -242,3 +242,53 @@ class SignalAggregator:
 
     def _calc_cci_signal(self):
         return np.where(self.df['CCI'] > 0, 1, -1)
+
+    def get_latest_market_context(self):
+        """
+        Extracts the most recent technical data for LLM analysis.
+        """
+        latest = self.df.iloc[-1]
+        
+        # Determine strict signal directions
+        rsi_signal = "NEUTRAL"
+        if latest['RSI'] > 70: rsi_signal = "OVERBOUGHT"
+        elif latest['RSI'] < 30: rsi_signal = "OVERSOLD"
+        
+        macd_signal = "BULLISH" if latest['MACD_Hist'] > 0 else "BEARISH"
+        trend_strength = "STRONG" if latest['ADX'] > 25 else "WEAK"
+        
+        # Support/Resistance proximity
+        price = latest['close']
+        nearest_fib = None
+        min_dist = float('inf')
+        for fib in ['Fib_0', 'Fib_236', 'Fib_382', 'Fib_500', 'Fib_618', 'Fib_786', 'Fib_100']:
+            dist = abs(price - latest[fib])
+            if dist < min_dist:
+                min_dist = dist
+                nearest_fib = fib
+                
+        return {
+            "timestamp": str(latest.name),
+            "price": float(price),
+            "unum_score": float(latest['unum_score']),
+            "market_state": self.state.value,
+            "indicators": {
+                "rsi": {
+                    "value": float(latest['RSI']),
+                    "signal": rsi_signal
+                },
+                "macd": {
+                    "value": float(latest['MACD']),
+                    "signal": macd_signal
+                },
+                "adx": {
+                    "value": float(latest['ADX']),
+                    "strength": trend_strength
+                },
+                "obv_trend": "BULLISH" if latest['OBV'] > self.df['OBV'].rolling(20).mean().iloc[-1] else "BEARISH"
+            },
+            "key_levels": {
+                "nearest_fib": nearest_fib,
+                "distance_pct": float(min_dist / price * 100)
+            }
+        }
